@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Yank
+GenericName=YouTube Downloader
+Comment=Download YouTube videos and audio
+Exec=/workspaces/yank/yank-launcher.sh
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Network;
+StartupNotify=true

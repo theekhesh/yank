@@ -27,77 +27,112 @@ class YankApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("YouTube Downloader")
-        self.geometry("700x500")
-        self.minsize(620, 420)
+        self.geometry("760x560")
+        self.minsize(680, 500)
 
         self.download_thread: threading.Thread | None = None
         self.process: subprocess.Popen[str] | None = None
         self.cancel_requested = False
         self.messages: queue.Queue[tuple[str, object]] = queue.Queue()
 
+        config = self.load_config()
         self.url_var = tk.StringVar()
         self.mode_var = tk.StringVar(value="video")
         self.quality_var = tk.StringVar(value="Best available")
-        self.output_var = tk.StringVar(value=str(self.load_output_folder()))
+        self.output_var = tk.StringVar(
+            value=str(self._output_from_config(config))
+        )
+        self.ytdlp_var = tk.StringVar(
+            value=str(config.get("yt_dlp_path", "") or "")
+        )
+        theme = str(config.get("theme", "light")).lower()
+        self.theme_var = tk.StringVar(
+            value="Dark" if theme == "dark" else "Light"
+        )
 
         self._build_ui()
+        self._apply_theme()
         self._check_dependencies()
         self.after(80, self._poll_messages)
 
     def _build_ui(self) -> None:
-        padding = {"padx": 10, "pady": 5}
+        padding = {"padx": 12, "pady": 6}
+        outer = ttk.Frame(self, style="App.TFrame")
+        outer.pack(fill="both", expand=True)
 
-        url_frame = ttk.Frame(self)
-        url_frame.pack(fill="x", **padding)
-        ttk.Label(url_frame, text="YouTube URL:", width=14).pack(side="left")
+        header = ttk.Frame(outer, style="Header.TFrame")
+        header.pack(fill="x", padx=12, pady=(12, 8))
+        ttk.Label(
+            header,
+            text="Yank",
+            style="Title.TLabel",
+        ).pack(side="left")
+        ttk.Label(header, text="YouTube Downloader", style="Subtitle.TLabel").pack(
+            side="left", padx=(10, 0), pady=(4, 0)
+        )
+        ttk.Label(header, text="Theme", style="Field.TLabel").pack(
+            side="right", padx=(8, 5)
+        )
+        theme = ttk.Combobox(
+            header,
+            textvariable=self.theme_var,
+            values=["Light", "Dark"],
+            state="readonly",
+            width=8,
+        )
+        theme.pack(side="right")
+        theme.bind("<<ComboboxSelected>>", lambda _event: self._change_theme())
+
+        card = ttk.Frame(outer, style="Card.TFrame")
+        card.pack(fill="x", padx=12, pady=(0, 8))
+
+        url_frame = ttk.Frame(card, style="Card.TFrame")
+        url_frame.pack(fill="x", padx=12, pady=(12, 6))
+        ttk.Label(url_frame, text="YouTube URL", style="Field.TLabel").pack(
+            anchor="w"
+        )
         ttk.Entry(url_frame, textvariable=self.url_var).pack(
-            side="left", fill="x", expand=True
+            fill="x", pady=(4, 0)
         )
 
-        mode_frame = ttk.Frame(self)
-        mode_frame.pack(fill="x", **padding)
-        ttk.Label(mode_frame, text="Download:", width=14).pack(side="left")
+        options = ttk.Frame(card, style="Card.TFrame")
+        options.pack(fill="x", padx=12, pady=6)
+        left = ttk.Frame(options, style="Card.TFrame")
+        left.pack(side="left", fill="x", expand=True)
+        ttk.Label(left, text="Download type", style="Field.TLabel").pack(anchor="w")
+        mode = ttk.Frame(left, style="Card.TFrame")
+        mode.pack(fill="x", pady=(4, 0))
         ttk.Radiobutton(
-            mode_frame,
-            text="Video MP4",
-            variable=self.mode_var,
-            value="video",
+            mode, text="Video MP4", variable=self.mode_var, value="video",
             command=self._update_quality_choices,
         ).pack(side="left")
         ttk.Radiobutton(
-            mode_frame,
-            text="Audio MP3",
-            variable=self.mode_var,
-            value="audio",
+            mode, text="Audio MP3", variable=self.mode_var, value="audio",
             command=self._update_quality_choices,
-        ).pack(side="left", padx=(15, 0))
+        ).pack(side="left", padx=(12, 0))
 
-        quality_frame = ttk.Frame(self)
-        quality_frame.pack(fill="x", **padding)
-        ttk.Label(quality_frame, text="Quality:", width=14).pack(side="left")
+        right = ttk.Frame(options, style="Card.TFrame")
+        right.pack(side="right", padx=(12, 0))
+        ttk.Label(right, text="Quality", style="Field.TLabel").pack(anchor="w")
         self.quality_combo = ttk.Combobox(
-            quality_frame,
-            textvariable=self.quality_var,
-            state="readonly",
-            width=22,
+            right, textvariable=self.quality_var, state="readonly", width=20
         )
-        self.quality_combo.pack(side="left")
+        self.quality_combo.pack(pady=(4, 0))
         self._update_quality_choices()
 
-        output_frame = ttk.Frame(self)
-        output_frame.pack(fill="x", **padding)
-        ttk.Label(output_frame, text="Output folder:", width=14).pack(side="left")
-        ttk.Entry(output_frame, textvariable=self.output_var).pack(
-            side="left", fill="x", expand=True
+        self._add_path_row(
+            card, "Output folder", self.output_var, self._browse_folder
         )
-        ttk.Button(output_frame, text="Browse...", command=self._browse_folder).pack(
-            side="left", padx=(5, 0)
+        self._add_path_row(
+            card, "yt-dlp path (optional)", self.ytdlp_var,
+            self._browse_ytdlp
         )
 
-        action_frame = ttk.Frame(self)
-        action_frame.pack(fill="x", **padding)
+        action_frame = ttk.Frame(card, style="Card.TFrame")
+        action_frame.pack(fill="x", padx=12, pady=(6, 12))
         self.download_button = ttk.Button(
-            action_frame, text="Download", command=self._start_download
+            action_frame, text="Download", style="Accent.TButton",
+            command=self._start_download
         )
         self.download_button.pack(side="left")
         self.cancel_button = ttk.Button(
@@ -108,49 +143,85 @@ class YankApp(tk.Tk):
         )
         self.cancel_button.pack(side="left", padx=(5, 0))
 
-        progress_frame = ttk.Frame(self)
+        progress_card = ttk.Frame(outer, style="Card.TFrame")
+        progress_card.pack(fill="x", padx=12, pady=(0, 8))
+        progress_frame = ttk.Frame(progress_card, style="Card.TFrame")
         progress_frame.pack(fill="x", padx=10, pady=(5, 0))
         self.progress = ttk.Progressbar(
             progress_frame, mode="determinate", maximum=100
         )
         self.progress.pack(fill="x")
 
-        status_frame = ttk.Frame(self)
+        status_frame = ttk.Frame(progress_card, style="Card.TFrame")
         status_frame.pack(fill="x", padx=10, pady=(2, 5))
-        ttk.Label(status_frame, text="Status:").pack(side="left")
+        ttk.Label(status_frame, text="Status:", style="Field.TLabel").pack(side="left")
         self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(status_frame, textvariable=self.status_var).pack(
-            side="left", padx=(5, 0)
+        ttk.Label(
+            status_frame,
+            textvariable=self.status_var,
+            style="Status.TLabel",
+        ).pack(
+            side="left",
+            padx=(5, 0),
         )
 
-        log_frame = ttk.LabelFrame(self, text="Log")
-        log_frame.pack(fill="both", expand=True, padx=10, pady=(5, 10))
+        log_frame = ttk.LabelFrame(
+            outer, text="Activity log", style="Log.TLabelframe"
+        )
+        log_frame.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         self.log = tk.Text(log_frame, wrap="word", height=10)
         self.log.pack(side="left", fill="both", expand=True)
         scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log.yview)
         scrollbar.pack(side="right", fill="y")
         self.log.configure(yscrollcommand=scrollbar.set, state="disabled")
 
-    def load_output_folder(self) -> Path:
+    def _add_path_row(
+        self,
+        parent: ttk.Frame,
+        label: str,
+        variable: tk.StringVar,
+        browse_command,
+    ) -> None:
+        row = ttk.Frame(parent, style="Card.TFrame")
+        row.pack(fill="x", padx=12, pady=6)
+        ttk.Label(row, text=label, style="Field.TLabel").pack(anchor="w")
+        controls = ttk.Frame(row, style="Card.TFrame")
+        controls.pack(fill="x", pady=(4, 0))
+        ttk.Entry(controls, textvariable=variable).pack(
+            side="left", fill="x", expand=True
+        )
+        ttk.Button(controls, text="Browse...", command=browse_command).pack(
+            side="left", padx=(6, 0)
+        )
+
+    def load_config(self) -> dict:
         try:
             data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-            saved = data.get("output_folder")
-            if isinstance(saved, str):
-                folder = Path(saved).expanduser()
-                if folder.is_dir():
-                    return folder
+            return data if isinstance(data, dict) else {}
         except (OSError, json.JSONDecodeError):
-            pass
+            return {}
+
+    def _output_from_config(self, config: dict) -> Path:
+        saved = config.get("output_folder")
+        if isinstance(saved, str):
+            folder = Path(saved).expanduser()
+            if folder.is_dir():
+                return folder
 
         if DEFAULT_OUTPUT.is_dir():
             return DEFAULT_OUTPUT
         return Path.home()
 
     def save_output_folder(self, folder: Path) -> None:
+        self.save_config({"output_folder": str(folder)})
+
+    def save_config(self, updates: dict) -> None:
         try:
+            config = self.load_config()
+            config.update(updates)
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             CONFIG_FILE.write_text(
-                json.dumps({"output_folder": str(folder)}, indent=2),
+                json.dumps(config, indent=2),
                 encoding="utf-8",
             )
         except OSError as exc:
@@ -158,7 +229,9 @@ class YankApp(tk.Tk):
 
     def _update_quality_choices(self) -> None:
         if self.mode_var.get() == "video":
-            choices = ["Best available", "1080p", "720p", "480p"]
+            choices = [
+                "Best available", "1080p", "720p", "480p", "360p", "240p"
+            ]
         else:
             choices = ["Best MP3", "320 kbps", "192 kbps", "128 kbps"]
         self.quality_combo.configure(values=choices)
@@ -173,22 +246,155 @@ class YankApp(tk.Tk):
         if folder:
             self.output_var.set(folder)
 
+    def _browse_ytdlp(self) -> None:
+        initial = self.ytdlp_var.get().strip()
+        initial_dir = str(Path(initial).expanduser().parent) if initial else str(Path.home())
+        executable = filedialog.askopenfilename(
+            initialdir=initial_dir,
+            title="Select yt-dlp executable",
+        )
+        if executable:
+            self.ytdlp_var.set(executable)
+            self.save_config({"yt_dlp_path": executable})
+            self._check_dependencies()
+
+    def _change_theme(self) -> None:
+        theme = self.theme_var.get().lower()
+        self.save_config({"theme": theme})
+        self._apply_theme()
+
+    def _apply_theme(self) -> None:
+        theme_name = self.theme_var.get().lower()
+        if theme_name not in ("light", "dark"):
+            theme_name = "light"
+            self.theme_var.set("Light")
+
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        if theme_name == "dark":
+            colors = {
+                "bg": "#17191c", "card": "#23262b", "field": "#1c1f23",
+                "text": "#f4f5f7", "muted": "#a9afb8", "border": "#3a3f46",
+                "accent": "#6c8cff", "accent_hover": "#7c99ff",
+                "input": "#2a2e34", "log": "#111316",
+            }
+        else:
+            colors = {
+                "bg": "#f3f5f8", "card": "#ffffff", "field": "#ffffff",
+                "text": "#20242a", "muted": "#657080", "border": "#d8dde5",
+                "accent": "#4f66d9", "accent_hover": "#3f55c3",
+                "input": "#ffffff", "log": "#fafbfc",
+            }
+
+        self.configure(background=colors["bg"])
+        style.configure(".", background=colors["bg"], foreground=colors["text"])
+        style.configure("App.TFrame", background=colors["bg"])
+        style.configure("Header.TFrame", background=colors["bg"])
+        style.configure("Card.TFrame", background=colors["card"])
+        style.configure("Title.TLabel", background=colors["bg"], foreground=colors["text"],
+                        font=("TkDefaultFont", 20, "bold"))
+        style.configure("Subtitle.TLabel", background=colors["bg"], foreground=colors["muted"],
+                        font=("TkDefaultFont", 10))
+        style.configure("Field.TLabel", background=colors["card"], foreground=colors["muted"],
+                        font=("TkDefaultFont", 9, "bold"))
+        style.configure("Status.TLabel", background=colors["card"], foreground=colors["text"])
+        style.configure("TLabel", background=colors["bg"], foreground=colors["text"])
+        style.configure("TEntry", fieldbackground=colors["input"], foreground=colors["text"],
+                        bordercolor=colors["border"], lightcolor=colors["border"],
+                        darkcolor=colors["border"], padding=7)
+        style.configure("TCombobox", fieldbackground=colors["input"], foreground=colors["text"],
+                        bordercolor=colors["border"], lightcolor=colors["border"],
+                        darkcolor=colors["border"], padding=5)
+        style.map(
+            "TCombobox",
+            fieldbackground=[
+                ("readonly", colors["input"]),
+                ("active", colors["input"]),
+                ("disabled", colors["border"]),
+            ],
+            foreground=[
+                ("readonly", colors["text"]),
+                ("disabled", colors["muted"]),
+            ],
+            selectbackground=[("readonly", colors["accent"])],
+            selectforeground=[("readonly", "#ffffff")],
+        )
+        style.configure("TScrollbar",
+                        background=colors["border"],
+                        troughcolor=colors["card"],
+                        bordercolor=colors["border"],
+                        arrowcolor=colors["text"])
+        style.map("TScrollbar",
+                  background=[("active", colors["muted"]),
+                              ("pressed", colors["accent"])])
+        style.configure("TRadiobutton", background=colors["card"], foreground=colors["text"])
+        style.map(
+            "TRadiobutton",
+            background=[("active", colors["card"]), ("disabled", colors["card"])],
+            foreground=[("disabled", colors["muted"])],
+            indicatorbackground=[
+                ("selected", colors["accent"]),
+                ("!selected", colors["input"]),
+            ],
+            indicatorforeground=[
+                ("selected", "#ffffff"),
+                ("!selected", colors["text"]),
+            ],
+        )
+        style.configure("TButton", padding=(10, 7), relief="flat")
+        style.configure("Accent.TButton", background=colors["accent"], foreground="#ffffff",
+                        bordercolor=colors["accent"], padding=(16, 9),
+                        font=("TkDefaultFont", 9, "bold"))
+        style.map("Accent.TButton",
+                  background=[("active", colors["accent_hover"]), ("disabled", colors["border"])])
+        style.configure("TProgressbar", thickness=8, troughcolor=colors["border"],
+                        background=colors["accent"], bordercolor=colors["border"])
+        style.configure("Log.TLabelframe", background=colors["card"], foreground=colors["text"],
+                        bordercolor=colors["border"], relief="solid")
+        style.configure("Log.TLabelframe.Label", background=colors["card"],
+                        foreground=colors["muted"])
+
+        self.log.configure(
+            background=colors["log"],
+            foreground=colors["text"],
+            insertbackground=colors["text"],
+            selectbackground=colors["accent"],
+        )
+
+    def _resolve_ytdlp(self) -> str | None:
+        custom = self.ytdlp_var.get().strip()
+        if custom:
+            path = Path(custom).expanduser()
+            if path.is_file() and os.access(path, os.X_OK):
+                return str(path)
+            return None
+        return shutil.which("yt-dlp")
+
     def _check_dependencies(self) -> None:
         missing: list[str] = []
-        for executable in ("yt-dlp", "ffmpeg"):
-            if shutil.which(executable) is None:
-                missing.append(executable)
+        if self._resolve_ytdlp() is None:
+            missing.append("yt-dlp")
+        if shutil.which("ffmpeg") is None:
+            missing.append("ffmpeg")
 
         if missing:
             names = " and ".join(missing)
             message = (
                 f"{names} is not installed or is not in PATH.\n"
-                "Install it and restart Yank."
+                "Install it, or enter/browse to a separate yt-dlp executable."
             )
             self._append_log(message + "\n")
             self.status_var.set(f"Missing dependency: {names}")
             self.download_button.configure(state="disabled")
             self.after(100, lambda: messagebox.showerror("Missing dependency", message))
+        else:
+            self.status_var.set("Ready")
+            if not hasattr(self, "download_thread") or self.download_thread is None:
+                self.download_button.configure(state="normal")
 
     def _append_log(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -209,6 +415,8 @@ class YankApp(tk.Tk):
             hostname == "youtu.be"
             or hostname == "youtube.com"
             or hostname.endswith(".youtube.com")
+            or hostname == "youtube-nocookie.com"
+            or hostname.endswith(".youtube-nocookie.com")
         )
 
     def _validate_output_folder(self) -> Path | None:
@@ -245,8 +453,19 @@ class YankApp(tk.Tk):
         folder = self._validate_output_folder()
         if folder is None:
             return
+        ytdlp = self._resolve_ytdlp()
+        if ytdlp is None:
+            messagebox.showerror(
+                "yt-dlp not found",
+                "Enter or browse to a valid yt-dlp executable.",
+            )
+            return
 
         self.save_output_folder(folder)
+        self.save_config({
+            "yt_dlp_path": self.ytdlp_var.get().strip(),
+            "theme": self.theme_var.get().lower(),
+        })
         self.cancel_requested = False
         self.progress.configure(mode="determinate")
         self.progress["value"] = 0
@@ -334,7 +553,25 @@ class YankApp(tk.Tk):
 
     def _build_command(self, url: str, folder: Path) -> list[str]:
         output_template = str(folder / "%(title)s.%(ext)s")
-        command = ["yt-dlp", "--newline", "--no-playlist", "-o", output_template]
+        ytdlp = self._resolve_ytdlp()
+        try:
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.strip("/").split("/")
+            if "shorts" in path_parts:
+                shorts_index = path_parts.index("shorts")
+                if shorts_index + 1 < len(path_parts):
+                    video_id = path_parts[shorts_index + 1]
+                    url = f"https://www.youtube.com/watch?v={video_id}"
+        except ValueError:
+            pass
+
+        command = [
+            ytdlp or "yt-dlp",
+            "--newline",
+            "--no-playlist",
+            "-o",
+            output_template,
+        ]
 
         if self.mode_var.get() == "audio":
             quality = self.quality_var.get()
@@ -354,13 +591,18 @@ class YankApp(tk.Tk):
         else:
             quality = self.quality_var.get()
             if quality == "Best available":
-                format_expression = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]/best"
+                format_expression = (
+                    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/"
+                    "b[ext=mp4]/bestvideo+bestaudio/best"
+                )
             else:
                 height = quality[:-1]
                 format_expression = (
                     f"bestvideo[height<={height}][ext=mp4]+"
-                    f"bestaudio[ext=m4a]/b[height<={height}][ext=mp4]/"
-                    f"best[height<={height}]/best"
+                    f"bestaudio[ext=m4a]/"
+                    f"b[height<={height}][ext=mp4]/"
+                    f"bestvideo[height<={height}]+bestaudio/"
+                    f"b[height<={height}]/best"
                 )
             command.extend(
                 [
@@ -371,6 +613,7 @@ class YankApp(tk.Tk):
                 ]
             )
 
+        command.append("--")
         command.append(url)
         return command
 

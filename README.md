@@ -23,7 +23,10 @@ Yank occupies the space in between: a **minimal GUI** that exposes only the deci
 
 - **Video downloads (MP4)**  Automatically selects the best available video and audio streams and merges them into a single MP4 file using `ffmpeg`.
 - **Audio-only downloads (MP3)**  Extracts and converts audio to MP3 with a selectable bitrate (Best, 320, 192, or 128 kbps).
-- **Quality control**  Choose Best available, 1080p, 720p, or 480p for video, with graceful fallback when a requested resolution is unavailable.
+- **Quality control**  Choose Best available, 1080p, 720p, 480p, 360p, or 240p for video, with graceful fallback when a requested resolution is unavailable.
+- **Modern themes**  Switch between light and dark modes; your preference is remembered.
+- **Portable yt-dlp**  Browse to a separately downloaded `yt-dlp` executable or enter its path.
+- **More resolution options**  Choose Best, 1080p, 720p, 480p, 360p, or 240p for video downloads.
 - **Output folder picker**  Pick any folder; Yank remembers your last choice between launches.
 - **Live progress and logs**  A progress bar and a scrollable log area show exactly what `yt-dlp` is doing, including errors and completion messages.
 - **Safe cancellation**  The Cancel button terminates the download cleanly without leaving partial processes behind.
@@ -95,6 +98,19 @@ python3 ./yank.py
 Yank must run in a graphical Linux desktop session. It does not run from a headless
 terminal or SSH session unless that session has a configured display.
 
+YouTube Shorts URLs such as `https://youtube.com/shorts/VIDEO_ID` are accepted.
+Yank converts them to standard YouTube video URLs before passing them to `yt-dlp`.
+
+### Configuring yt-dlp
+
+Yank uses `yt-dlp` from `PATH` by default. If you downloaded `yt-dlp` separately,
+select or enter it in the **yt-dlp path (optional)** field before downloading.
+The executable can also be a standalone binary outside `/usr/local/bin`.
+
+You can switch between **Light** and **Dark** themes from the top-right control.
+Theme, output folder, and custom yt-dlp path preferences are stored in
+`~/.config/yank/config.json`.
+
 For a desktop launcher or shell shortcut, make the script executable:
 
 ```bash
@@ -107,6 +123,24 @@ You can also create a shell alias:
 ```bash
 alias yank='python3 /workspaces/yank/yank.py'
 ```
+
+### Desktop launcher
+
+Install Yank in your Linux application menu:
+
+```bash
+./install-launcher.sh
+```
+
+The launcher appears as **Yank** in your desktop application's menu. To also launch
+Yank automatically when you log in:
+
+```bash
+./install-launcher.sh --autostart
+```
+
+To remove login autostart, delete
+`~/.config/autostart/yank.desktop`.
 
 ---
 
