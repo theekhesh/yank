@@ -126,6 +126,8 @@ alias yank='python3 /workspaces/yank/yank.py'
 
 ### Desktop launcher
 
+The desktop entry uses [yank-logo.svg](/workspaces/yank/yank-logo.svg) as its icon.
+
 Install Yank in your Linux application menu:
 
 ```bash

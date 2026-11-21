@@ -10,7 +10,9 @@ chmod +x "$APP_DIR/yank-launcher.sh"
 mkdir -p "$APPLICATIONS_DIR"
 
 sed "s|Exec=/workspaces/yank/yank-launcher.sh|Exec=$APP_DIR/yank-launcher.sh|" \
-    "$APP_DIR/yank.desktop" > "$APPLICATIONS_DIR/yank.desktop"
+    "$APP_DIR/yank.desktop" |
+    sed "s|Icon=/workspaces/yank/yank-logo.svg|Icon=$APP_DIR/yank-logo.svg|" \
+        > "$APPLICATIONS_DIR/yank.desktop"
 chmod +x "$APPLICATIONS_DIR/yank.desktop"
 
 if [[ "${1:-}" == "--autostart" ]]; then
