@@ -73,6 +73,12 @@ sudo chmod a+rx /usr/local/bin/yt-dlp
 
 # Arch Linux
 sudo pacman -S python tk ffmpeg yt-dlp
+
+# Optional: Deno JavaScript runtime (recommended for newer YouTube format handling)
+sudo pacman -S deno
+
+# Fedora
+sudo dnf install python3-tkinter ffmpeg yt-dlp deno
 ```
 
 ---
