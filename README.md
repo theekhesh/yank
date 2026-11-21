@@ -85,14 +85,27 @@ sudo dnf install python3-tkinter ffmpeg yt-dlp deno
 
 ## Running Yank
 
+Open a terminal in the repository directory and run:
+
 ```bash
-python3 yank.py
+cd /workspaces/yank
+python3 ./yank.py
 ```
 
-No installation step, no build process. You can place `yank.py` anywhere, make it executable, and even create a desktop launcher or a shell alias such as:
+Yank must run in a graphical Linux desktop session. It does not run from a headless
+terminal or SSH session unless that session has a configured display.
+
+For a desktop launcher or shell shortcut, make the script executable:
 
 ```bash
-alias yank='python3 ~/yank.py'
+chmod +x ./yank.py
+./yank.py
+```
+
+You can also create a shell alias:
+
+```bash
+alias yank='python3 /workspaces/yank/yank.py'
 ```
 
 ---
