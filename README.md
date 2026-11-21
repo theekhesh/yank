@@ -81,7 +81,7 @@ sudo pacman -S python tk ffmpeg yt-dlp
 sudo pacman -S deno
 
 # Fedora
-sudo dnf install python3-tkinter ffmpeg yt-dlp deno
+sudo dnf install python3-tkinter ffmpeg yt-dlp
 ```
 
 ---
